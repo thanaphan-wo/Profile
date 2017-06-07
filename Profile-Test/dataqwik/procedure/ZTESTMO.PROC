@@ -1,0 +1,806 @@
+//DO NOT MODIFY  Tangmo Test|ZTESTMO|||||||1
+	/*
+	 ORIG: 1 - 08/01/2014
+	 DESC: 
+	
+	 ---- Comments --------------------------------------------------------
+	
+	 ---- Revision History ------------------------------------------------
+	
+	 ****** Consider using setAuditFlag for all objects in this procedure
+	   example :do dep.setAuditFlag(1)
+	
+	*/
+	
+	
+	quit
+ZTS1
+
+	type String ZPROC="ZTESTMO"
+	
+	kill ^MPROF(ZPROC)
+	
+	#BYPASS
+	view "TRACE":1:"^MPROF("""_ZPROC_""","""_$J_""")"
+	#ENDBYPASS
+	
+	do ZTESTFOR
+
+	#BYPASS
+	view "TRACE":0:"^MPROF("""_ZPROC_""","""_$J_""")"
+	#ENDBYPASS
+
+	quit
+	
+ZTS2
+
+	type String ZPROC="ZTESTMO2"
+	kill ^MPROF(ZPROC)
+	
+	#BYPASS
+	view "TRACE":1:"^ZTESTMO("""_ZPROC_""","""_$J_""")"
+	#ENDBYPASS
+	
+	//----- Program -----
+	type String ZRM
+	set ZRM=$$ZMRPCPOC(.return,1,12000138,12000065,500,1)
+	if return.isNull() write !,"Program error "_return
+	//----- Program -----
+
+	#BYPASS
+	view "TRACE":0:"^ZTESTMO("""_ZPROC_""","""_$J_""")"
+	#ENDBYPASS
+	
+	//----- Number of lines of code exercised -----
+	type Number ZCNTCOVER
+	set ZCNTCOVER=$$CNTCOVER(ZPROC,"ZTESTMO","ZMRPCPOC")
+	
+	//----- Total Number of lines of code -----
+	type Number ZCNTTOTAL
+	set ZCNTTOTAL=$$CNTTOTAL("ZTESTMO","ZMRPCPOC")
+	
+	write !,"Number of lines of code exercised : "_ZCNTCOVER
+	write !,"Total Number of lines of code : "_ZCNTTOTAL
+	write !,"Code Coverage : "_((ZCNTCOVER/ZCNTTOTAL)*100).zero(1,2)_" %"
+
+	quit
+	
+CNTCOVER(ZBCHID,ZPID,ZPGM)
+	
+	type Number ZCNT=0
+
+	type ResultSet mprof=Db.select("DISTINCT BCHID,PID,PGM,LBL","MPROF","BCHID=:ZBCHID AND PID=:ZPID AND PGM=:ZPGM")
+	while mprof.next() do {
+		if mprof.getCol("LBL")=0 quit
+		set ZCNT=ZCNT+1
+	}
+
+	quit ZCNT
+	
+CNTTOTAL(ZPROC,ZLINETAG)
+
+	type Number ZCNT=0
+	type String ZREC
+	type Boolean ZCNTFLG=0
+
+	type String ZPATH="/cbsdev/crtns"
+	type String ZFNAME=ZPROC_".m"
+
+	set ZY=$$SYS^%ZFUNC("ls "_ZPATH_"/"_ZFNAME_" 2>/dev/null")
+	if ZY'=0 set ZER=1,ZRM="File Not Found" quit ZCNT
+	
+	type IO ioIN=Class.new("IO")
+	set ioIN.fileName=ZFNAME
+	set ioIN.directory=ZPATH
+	set ioIN.openParams="READ"
+	set ioIN.recordSize=1000
+	
+	do ioIN.open()
+	
+	for  set ZREC=ioIN.read(.ETYP) quit:+ETYP'=0  do {
+	
+		if ZCNTFLG=0,(ZREC.extract(1)'=$C(9)),(ZREC.extract(1)'="v") do { quit:ZCNTFLG
+			
+			set ZREC=ZREC.piece($C(9),1).piece("(",1)
+			if ZREC=ZLINETAG set ZCNTFLG=1			
+		}
+		
+		if ZCNTFLG=1 do {
+			if (ZREC.extract(1)'=$C(9)) set ZCNTFLG=0 quit
+			if (ZREC.piece($C(9),2)).extract(1)=";" quit
+			set ZCNT=ZCNT+1, ZTESTMO(ZCNT)=ZREC
+		}
+		
+	}
+	
+	do ioIN.close()
+
+	quit ZCNT
+	
+ZTESTFOR
+
+	type Number i=0
+	type Number A=0
+
+	for  do {  quit:i=5  if A=1 quit
+	
+		set i=i+1
+		set:i=2 A=1
+	
+	}
+	
+	W !,"i : "_i
+	W !,"A : "_A
+
+	do ZTRACE
+
+	quit
+
+ZTRACE
+
+	set X=2
+	set Y=1
+	set Z=1
+	
+	if X=2 do {
+		set Y=2
+		set Z=2
+	}
+
+	quit
+
+ZTESTIMPORT
+
+	d TEST^ZTESTMO2
+
+        quit
+
+ZDTSTAMP3(RESEPOCH,RESZSTAMP1,RESZSTAMP2)
+	//ZDTSTAMP3
+      
+     // do SYSVAR^SCADRV0()
+      
+      new ZEPOCH,ZEPDATE,ZEPTIME,MICSEC
+      new ZJDATE
+      new ZTIME,ZSTAMP1,ZSTAMP2
+      set (ZEPOCH,ZEPDATE,ZEPTIME,MICSEC)=""
+      set (ZJDATE)=""
+      set (ZTIME,ZSTAMP1,ZSTAMP2)=""
+      
+      //get value
+      //set ZJDATE=%CurrentDate
+      set ZEPOCH=$$GETTIM^%ZFUNC()
+      
+      //microsec, sec
+      set MICSEC=ZEPOCH.extract(11,16)
+      set ZEPOCH=ZEPOCH.extract(1,10)
+      
+      //epoch date,time
+      set ZEPDATE=ZEPOCH\86400
+      set ZEPTIME=ZEPOCH-(ZEPDATE*86400)
+      
+      //julian date
+      set ZJDATE=ZEPDATE+47117
+      
+      //HHMMSS
+      set ZHH=ZEPTIME\3600
+      set ZMM=(ZEPTIME-(ZHH*3600))\60
+      set ZSS=(ZEPTIME-(ZHH*3600)-(ZMM*60))
+      set ZTIME=(ZHH+7).zero(2)_ZMM.zero(2)_ZSS.zero(2)
+      
+      //timestamp
+      set ZSTAMP1=$$DAT^%ZM(ZJDATE,"YYMMDD")_ZTIME_MICSEC.zero(6)					//new
+      set ZSTAMP2=$$DAT^%ZM(%CurrentDate,"YYMMDD")_$$TIM^%ZM(%CurrentTime,"2460SS")_MICSEC.zero(6)	//old
+      
+      /*
+      write !,"UNIX TIME : "_ZEPOCH_" "_MICSEC
+      
+     // write !,"TIMESTAMP(OLD) : "_ZSTAMP2
+      write !,"TIMESTAMP : "_ZSTAMP1,!
+      */
+      
+      set RESEPOCH=ZEPOCH_" "_MICSEC
+      set RESZSTAMP1=ZSTAMP1
+      set RESZSTAMP2=ZSTAMP2
+     
+      
+      quit
+     
+     /* 
+LOOP4(loop)
+
+	for i=1:1:loop do {
+		
+		do ZDTSTAMP3
+		
+		set X=$$WAIT^%ZFUNC(0.05*loop)
+        
+	}
+      
+	quit  
+      */
+      
+      
+LOOP3(loop)
+
+	new RESEPOCH,RESZSTAMP1,RESZSTAMP2
+	new OLDEPOCH,OLDSTAMP1,OLDSTAMP2
+	set (RESEPOCH,RESZSTAMP1,RESZSTAMP2)=""
+	set (OLDEPOCH,OLDSTAMP1,OLDSTAMP2)=""
+	
+	for i=1:1:loop do {
+		
+		do ZDTSTAMP3(.RESEPOCH,.RESZSTAMP1,.RESZSTAMP2)
+        	
+        	if RESZSTAMP1<OLDSTAMP1 do {
+        		
+			write !,"UNIX TIME : "_OLDEPOCH_" / "_RESEPOCH,!
+      
+			//write !,"TIMESTAMP(OLD) : "_OLDSTAMP2_" / "_RESZSTAMP2
+			write !,"TIMESTAMP(NEW) : "_OLDSTAMP1_" / "_RESZSTAMP1
+			
+			write !
+			write !,"----------------------------------"
+			write !
+        		
+        	}
+        	
+        	set OLDEPOCH=RESEPOCH
+        	set OLDSTAMP1=RESZSTAMP1
+        	set OLDSTAMP2=RESZSTAMP2
+        
+	}
+      
+	quit  
+      
+	
+
+ZDTSTAMP2
+      
+      do SYSVAR^SCADRV0()
+      
+      type String ZSTAMP,ZTIM,ZDAT
+      set (ZSTAMP,ZTIM,ZDAT)=""
+      
+      type Number MICSEC
+      set MICSEC=""
+      
+      set MICSEC=$$GETTIM^%ZFUNC()
+      set ZTEMP=MICSEC
+      set MICSEC=MICSEC.extract(MICSEC.length()-5,MICSEC.length())
+
+      set ZSTAMP=$$DAT^%ZM(%CurrentDate,"YYMMDD")_$$TIM^%ZM(%CurrentTime,"2460SS")_MICSEC.zero(6)
+      
+      write !,"GETTIM : "_ZTEMP
+      write !,"MICSEC : "_MICSEC
+      write !,"STAMP : "_ZSTAMP
+      
+      
+      quit
+
+
+ZDTSTAMP(ZTEMP)
+      
+      // Time Stamp 
+
+      
+      do SYSVAR^SCADRV0()
+      
+      type String ZSTAMP,ZTIM,ZDAT
+      set (ZSTAMP,ZTIM,ZDAT)=""
+      
+      type Number MICSEC
+      set MICSEC=""
+      
+      set MICSEC=$$GETTIM^%ZFUNC()
+      set ZTEMP=MICSEC
+      set MICSEC=MICSEC.extract(MICSEC.length()-5,MICSEC.length())
+      
+
+      set ZSTAMP=$$DAT^%ZM(%CurrentDate,"YYMMDD")_$$TIM^%ZM(%CurrentTime,"2460SS")_MICSEC.zero(6)
+      
+      quit ZSTAMP
+      
+      
+      //quit $$GETTIM^%ZFUNC()
+      
+      
+LOOP(loop)
+
+	new ZTEMP
+	new ZSTAMP1,ZSTAMP2,ZMICSEC1,ZMICSEC2
+	set (ZSTAMP1,ZSTAMP2,ZMICSEC1,ZMICSEC2)=""
+	
+	for i=1:1:loop do {
+            
+            	set ZTEMP=""
+            
+		set ZSTAMP1=$$ZDTSTAMP(.ZTEMP)
+		set ZMICSEC1=ZTEMP
+            
+		if ZSTAMP1<ZSTAMP2 write !,ZSTAMP2,!,ZSTAMP1,!,ZMICSEC2,!,ZMICSEC1
+            
+		set ZSTAMP2=ZSTAMP1
+		set ZMICSEC2=ZMICSEC1
+	}
+      
+	quit  
+
+
+REC1
+
+	
+
+	do REC2(.zdep)
+	
+	//write zdep.cid.get()
+
+
+	quit
+	
+REC2(RecordDEP zdep)
+
+	type RecordDEP zdep=Db.getRecord("DEP","CID='11000010'",1)
+	write !,"CID : "_zdep.cid
+
+	quit
+
+TPUB
+	
+	type public String ZMO
+	set ZMO="A"
+	
+	write "ZMO : "_ZMO
+	
+	do TPUB1
+	
+	write "ZMO : "_ZMO
+	
+	quit
+	
+TPUB1
+	
+	type String ZMO="B"
+	
+	write "ZMO : "_ZMO
+	
+	quit
+
+TESTCHKVAL
+
+	type Number A,B,C,D
+	set (A,B,C,D)=1
+	set A=1111111111
+	set B=111111111111111
+	set A=A.zero(12)
+	set B=B.zero(12)
+
+	do TESTCHKVAL1
+	
+	write !,A_","_B_","_C_","_D
+
+	quit
+	
+TESTCHKVAL1
+
+	set (C,D)=2
+	write !,A_","_B_","_C_","_D
+
+	quit
+
+
+TESTDEC
+
+	set A="1000000"
+	set B=A.fnumber(",",2)
+	W !,"A : "_A
+	W !,"A : "_B
+
+	quit
+
+TESTDO1
+
+	type String A,B
+	set A=2, B=""
+
+	do {
+	
+		if A=1 set B="A" quit
+		if A=2 set B="B" quit
+		if A=3 set B="C" quit
+	
+	}
+	
+	write !,"B = "_B
+
+	quit
+
+TESTMERGE
+
+	type RecordDEP dep1 = Db.getRecord("DEP",1)
+	type RecordDEP dep2 = dep1.copy()
+	
+	quit
+
+
+TESTIF
+
+	type Number ZRUN,ZCHK,ZDUP
+	set (ZRUN,ZCHK,ZDUP)=""
+
+	set ZRUN=1
+	set ZCHK=1
+
+	do {
+		if ZRUN=1 do { quit:ZDUP 
+			if ZCHK set ZDUP=1
+		}
+		write !, "IN"
+	}
+	
+	write !, "OUT"
+
+	quit
+
+
+ZAMLO
+
+	type String ZAMRPTTY,ZAMTRTYP,TRTRNDES
+	
+	type ResultSet rsamtxn=Db.select("TXNCODE,TAMT,ZAMRPTTY,ZAMTRTYP,TRTRNDES","ZUTBLAMTXN","AMFILE='1-05-9'")
+	while rsamtxn.next() do {
+		set AMLOTXN(rsamtxn.getCol("TXNCODE"))=rsamtxn.getCol("TAMT")
+		
+		//Report type, Transaction type, Transaction Type Description
+		set ZAMRPTTY=rsamtxn.getCol("ZAMRPTTY")
+		set ZAMTRTYP=rsamtxn.getCol("ZAMTRTYP")
+		set TRTRNDES=rsamtxn.getCol("TRTRNDES")
+		
+		//Default value for report type
+		if rsamtxn.getCol("TXNCODE")="BORCH" set ZAMRPTTY="1"
+		if ZAMRPTTY.isNull() set ZAMRPTTY="2"
+		
+		//Default value for transaction type
+		if ZAMTRTYP.isNull() set ZAMTRTYP="01"
+		
+		set AMLOTYP(rsamtxn.getCol("TXNCODE"))=ZAMRPTTY_"|"_ZAMTRTYP_"|"_TRTRNDES
+	}
+	
+	quit
+
+IFELSE
+
+	
+	type Number A,B,C
+	set A=1,B=1,C=""
+	if A=0 set B=2
+	else  if A=1 do {
+		set B=3
+		if B'=3 set C=1
+		else  set C=2
+	}
+	else  set C=10
+	W !,"A="_A
+	W !,"B="_B
+	W !,"C="_C
+	
+	/*
+	set DUP=0
+	set A=0
+	
+	if DUP write "DUP"
+	else if A=1 write "ELSEIF"
+	else  write "ELSE"
+	*/
+	
+	quit
+	
+
+MYLIST
+
+	type public String ZCTTXN="PMTCH,PPMTCH,PMTTR,BNTCRC,BNTCR"
+	if ZCTTXN'[(","_ZETC_",") W !,"INVALID"
+	
+	quit
+
+CHKIF
+	
+	set (A,B)="X"
+
+	set A=1
+	if A do {
+		if A=0 set B=0
+	}
+	if A=0 W !,"A/B"
+	else  W !, A_"/"_B
+	
+	
+	quit	
+
+NEW1
+
+	type String TEST1,TEST2
+	set TEST1="A"
+	set TEST2="A"
+	set TEST3="A"
+	do NEW2(.TEST1)
+	
+	W !,"TEST1 = "_TEST1
+	W !,"TEST2 = "_TEST2
+	W !,"TEST3 = "_TEST3
+	
+	quit
+
+NEW2(TEST1)
+
+	set TEST1="B"
+	set TEST2="B"
+	set TEST3="B"
+	
+	quit
+
+SIGN
+
+	set POS=12345.6789
+	set NEG=-12345.6789
+	/*
+	set POS1=POS.fnumber("+",2)
+	set NEG1=NEG.fnumber("+",2)
+	write !,"POS="_POS
+	write !,"NEG="_NEG
+	write !,"POS1="_POS1
+	write !,"NEG1="_NEG1
+	set POS2=+POS1
+	set NEG2=+NEG1
+	write !,"POS2="_POS2
+	write !,"NEG2="_NEG2
+	set POS3=POS.fnumber("-").zero(18,2,1,0)
+	set NEG3=NEG.fnumber("-").zero(18,2,1,0)
+	write !,"POS3="_POS3
+	write !,"NEG3="_NEG3
+	*/
+	
+	set POSSIGN=POS.fnumber("+").extract(1)
+	set NEGSIGN=NEG.fnumber("+").extract(1)
+	set POSVAL=POS.fnumber("-").zero(18,2,1,0)
+	set NEGVAL=NEG.fnumber("-").zero(18,2,1,0)
+	
+	write !,"POSSIGN="_POSSIGN
+	write !,"NEGSIGN="_NEGSIGN
+	write !,"POSVAL="_POSVAL
+	write !,"NEGVAL="_NEGVAL
+	
+	quit
+
+TEST
+
+	set ZCUTOFF=63370
+	set A=1, B=1, C=1, D=1, E=1
+	do Db.fastDelete("ZICASCLR","EJD=:D")
+	do Db.delete("ZICASCLR","EJD=:D","/NOJOURNAL/NOTRIGAFT/NOTRIGBEF")
+	quit
+
+AMLO
+
+	KILL ZAMLO159
+	
+	type RecordZAMLO159 zaltx=Db.getRecord("ZAMLO159","TJD=63350,BRCD=1,UID=1,TSET=1,TSEQSUB=0,TSEQ=:1001",1)
+	set zaltx.refno		= "".blank(50)
+	set zaltx.channel	= "".blank(2)
+	set zaltx.userid	= "".blank(8)
+	set zaltx.tlo		= "".blank(8)
+	set zaltx.authid	= "".blank(8)
+	set zaltx.authlv	= "".blank(3)
+	set zaltx.time		= "".blank(11)
+	set zaltx.kbtrcd	= "".blank(6)
+	set zaltx.thbamt	= "".blank(19)
+	set zaltx.trntdes	= "".blank(100)
+	set zaltx.cid		= "".blank(12)
+	set zaltx.crcd		= "".blank(4)
+	set zaltx.sndbank	= "".blank(250)
+	set zaltx.sndcnt	= "".blank(100)
+	set zaltx.rcvbank	= "".blank(250)
+	set zaltx.rcvcnt	= "".blank(100)
+	set zaltx.sndfnam	= "".blank(250)
+	set zaltx.sndnat	= "".blank(100)
+	set zaltx.sndaddr1	= "".blank(250)
+	set zaltx.sndaddr2	= "".blank(250)
+	set zaltx.sndprv	= "".blank(100)
+	set zaltx.snddocdes	= "".blank(100)
+	set zaltx.sndissby	= "".blank(100)
+	set zaltx.rcvfnam	= "".blank(250)
+	set zaltx.rcvaddr1	= "".blank(250)
+	set zaltx.rcvaddr2	= "".blank(250)
+	do zaltx.bypassSave()
+
+	quit
+	
+INTPOST
+	
+	do SYSVAR^SCADRV0()
+	set ZTJD=%SystemDate
+	
+	if 'ZSH.get() do {
+		
+		do TERM^%ZUSE(0,"ECHO/ESCAPE/CHARACTERS/NOEDIT/NOIMAGE/WIDTH=81/TERMINATOR=$C(11,13,16,23)")
+		write $$GREN^%TRMVT                    // Enable graphics
+		write $$CUON^%TRMVT                    // Turn on cursor
+		
+		set %TAB("ZCID")="/DES=ACCTID/REQ/TYP=T/LEN=30"
+	 	set %READ="@@%FN/REV/CEN,,ZCID"
+	 	
+	 	do ^UTLREAD if VFMQ="Q" quit
+	 	
+ 	}
+ 	
+ 	type RecordDEP zdep=Db.getRecord("DEP","CID=:ZCID",1)
+ 	
+ 	do SOURCE^BCHSOURC("INT","INT", .PUID, .PBRCD, .PUCLS, .TSDRCID, .TSCRCID)
+	if ER quit
+
+	type RecordTTX zttx
+	type Number XSEQ,IPITC,WHLD
+	type String ZETC
+	set XSEQ=1
+	
+	if (zdep.grp'="SAV"), (zdep.grp'="CD") quit
+	if zdep.grp="SAV" set ZETC="IIPS"
+	if zdep.grp="CD" set ZETC="IIPC"
+		
+	type RecordTRN trn = Db.getRecord("TRN","ETC=:ZETC",1)
+	set IPITC = trn.itc.extract(1)
+	set %UserID=PUID
+	set %UCLS=PUCLS
+		
+	set zttx=Class.new("RecordTTX")
+	set zttx.tjd	= ZTJD
+	set zttx.brcd	= PBRCD
+	set zttx.uid	= PUID
+	set zttx.cid	= ZCID
+	set zttx.itc	= IPITC
+	set zttx.etc 	= ZETC
+	set zttx.tamt 	= zdep.posacr.roundDec(2,"")
+	set zttx.tlo 	= %UserStation.get()
+	set zttx.cc 	= zdep.cc
+	set zttx.tcmt 	= "Find Withholding Tax"
+	set zttx.crcd 	= "THB"
+	set zttx.cdt 	= %CurrentDate
+	set zttx.tim 	= %CurrentTime
+	
+	do Runtime.start("BA","","SAVPTR")
+		
+ 	type RecordDEP zpdep = zdep.copy()
+ 		 
+	do TRNSINGL^TRNDRV(.zttx,.zpdep,ZTJD,PBRCD,4)
+	if ER=1 do { quit
+		do Runtime.rollback("SAVPTR")
+		write RM
+	}
+	//set WHLD = zttx(XSEQ).tamt.piece("#",5)	    
+	do Runtime.rollback("SAVPTR")
+	
+	write !,"ACCTID = "_ZCID
+	write !,"TTX.TAMT = "_zttx.tamt
+	write !,"PRINCIPLE = "_zttx.prin
+	write !,"OUTBAL = "_(zdep.bal+zttx.prin)
+	write !,"AVLBAL = "_(zdep.balavl+zttx.prin)
+	write !,""
+	
+	
+	
+	quit
+
+
+tracereport(gbl,label,rtn)
+
+	#BYPASS
+	set gap=15
+	set $piece(x,".",gap*6)="" write x,!
+	write "Line #",?gap,"Count",?gap*2,"User Time",?gap*3,"System Time",?gap*4,"Total Time",?gap*5,"Elapsed Time",!
+	set $piece(x,".",gap*6)="" write x,!
+	for  set gbl=$query(@gbl) quit:gbl=""  do
+	.      if ($length(@gbl,":")=5)&($qsubscript(gbl,1)=rtn)&($qsubscript(gbl,2)=label) do
+        ..      set gap=15 set lineno=$qsubscript(gbl,3)
+        ..      if lineno="" write label," total",?gap set zp=""
+        ..      else  write lineno,?gap set zp=label_"+"_lineno_"^"_rtn
+        ..      for i=1:1:5 set gap=gap+15 write $piece(@gbl,":",i),?gap
+        ..      write !
+        ..      set maxlines=$qsubscript(gbl,3)
+	for i=0:1:maxlines do
+	.      set zp=label_"+"_i_"^"_rtn
+	.      write "Line #",i,": ",?9
+	.      zprint @zp
+	#ENDBYPASS
+	
+	quit
+	
+	
+ZMRPCPOC(return,versn,FCID,TCID,TAMT,UID)
+
+	set FCID=FCID.get(), TCID=TCID.get(), TMAT=TMAT.get(), UID=UID.get()
+	set return=""
+	
+	if 'Db.isDefined("ACN","CID=:FCID") set ER=1 set return=$$^MSG(1259,FCID) quit $$ERRMSG^PBSUTL($$^MSG(1259,FCID))  //Invalid account ~p1
+	if 'Db.isDefined("ACN","CID=:TCID") set ER=1 set return=$$^MSG(1259,TCID) quit $$ERRMSG^PBSUTL($$^MSG(1259,TCID))  //Invalid account ~p1
+	if 'Db.isDefined("SCAU","UID=:UID") set ER=1 set return=$$^MSG(7591,UID) quit $$ERRMSG^PBSUTL($$^MSG(7591,UID))  //
+	if TAMT'>0 set ER=1 set return=$$^MSG(2679) quit $$ERRMSG^PBSUTL($$^MSG(2679))  //Transaction amount cannot be less than zero
+	
+	do SYSVAR^SCADRV0()
+	
+	type String ZRM=""
+	type Number SEQ=0
+	type Number BRCD=1
+	type String ETCDR="SW"
+	type String ETCCR="SD"
+	
+	set %UserID=UID
+	set %UserStation=%UserStation.get()
+	set %EMUCRCD="THB"
+	set %CRCD="THB"
+	set %MCP=%MCP.get()
+	
+	type String RJ(),SPV(),OVR(,,)
+ 	type RecordTTX ttx()
+ 	type Number TRNINP()
+ 	type Number ZTRC=""
+ 	
+	set TRNINP("KeepSPV") = 1
+	set TRNINP("updTTX")=1
+	set TRNINP("skipBalancing")=1
+	
+	type RecordSCAU scau=Db.getRecord("SCAU","UID=:UID",1)
+	set %UserClass=scau.%ucls
+	set TSPV("*")=%UserID_"|"_%UserClass
+	
+	do TTX(.ttx(),FCID,TAMT,UID,"SW",BRCD)
+	do TTX(.ttx(),TCID,TAMT,UID,"SD",BRCD)
+	
+	do TRNSET^TRNDRV(.ttx(),%SystemDate,BRCD,1,.ZTRC,.RJ(,),.SPV(,,,),.OVR(,,),.OM(),1,.TRNINP)
+	
+	if RJ.data() do { quit $$ERRMSG^PBSUTL(ZRM)
+		set ZRM=RJ($$FINDSEQ(.RJ)).piece("|",2)
+		set return=$$V2LV^MSG(ZRM)
+	}
+	
+	set return=$$V2LV^MSG("")
+	
+	quit ""
+	
+	
+TTX(RecordTTX ttx(),CID,TAMT,UID,ETC,BRCD)
+
+	type RecordTRN trn=Db.getRecord("TRN","ETC=:ETC",1)
+	type RecordUTBLBRCD utblbrcd=Db.getRecord("UTBLBRCD","BRCD=:BRCD",1)
+	
+	set SEQ=SEQ+1
+	
+	set ttx(SEQ)=Class.new("RecordTTX")
+	set ttx(SEQ).cid=CID
+	set ttx(SEQ).etc=ETC
+	set ttx(SEQ).tjd=%SystemDate
+	set ttx(SEQ).itc=trn.itc
+	set ttx(SEQ).tamt=TAMT
+	set ttx(SEQ).efd=%SystemDate
+	set ttx(SEQ).tlo=TLO.get()
+	set ttx(SEQ).tcmt=""
+	set ttx(SEQ).tso=""
+	set ttx(SEQ).brcd=BRCD
+	set ttx(SEQ).uid=UID
+	set ttx(SEQ).crcd=%CRCD.get()
+	set ttx(SEQ).cc=utblbrcd.ccdef	
+	
+	quit
+	
+	
+FINDSEQ(RJ)	//find sequence in RJ that is not "BATCH REJECT"
+
+	new RJSEQ,ZQUIT
+	set RJSEQ=$O(RJ(""))
+	set ZQUIT=0
+	
+	while 'ZQUIT do {
+		if RJ(RJSEQ).piece("|",2)'="BATCH REJECT" set ZQUIT=1 quit
+		set RJSEQ=RJSEQ+1
+	}
+	quit RJSEQ	
+	
